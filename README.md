@@ -8,7 +8,11 @@
     + Scikit-Learn
     + Numpy
     + Pytorch
-
+    + torch_optimizer, installed by
+        
+        ```bash
+        pip install torch_optimizer
+        ```
 ## Training and Testing
 1. Put csv files into the project root directory.
 

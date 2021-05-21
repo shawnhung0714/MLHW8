@@ -8,22 +8,29 @@ class fcn_autoencoder(nn.Module):
         super(fcn_autoencoder, self).__init__()
         self.encoder = nn.Sequential(
             nn.Linear(64 * 64 * 3, 128),
+            nn.BatchNorm2d(128),
             nn.ReLU(True),
             nn.Linear(128, 64),
+            nn.BatchNorm2d(64),
             nn.ReLU(True),
             nn.Linear(64, 12),
+            nn.BatchNorm2d(12),
             nn.ReLU(True),
             nn.Linear(12, 3),
         )
 
         self.decoder = nn.Sequential(
             nn.Linear(3, 12),
+            nn.BatchNorm2d(12),
             nn.ReLU(True),
             nn.Linear(12, 64),
+            nn.BatchNorm2d(64),
             nn.ReLU(True),
             nn.Linear(64, 128),
+            nn.BatchNorm2d(128),
             nn.ReLU(True),
             nn.Linear(128, 64 * 64 * 3),
+            nn.Dropout2d(),
             nn.Tanh(),
         )
 
@@ -43,16 +50,12 @@ class conv_autoencoder(nn.Module):
             nn.Conv2d(12, 24, 4, stride=2, padding=1),
             nn.ReLU(),
             nn.Conv2d(24, 48, 4, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(48, 96, 4, stride=2, padding=1),  # medium: remove this layer
+            nn.BatchNorm2d(48),
             nn.ReLU(),
         )
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(
-                96, 48, 4, stride=2, padding=1
-            ),  # medium: remove this layer
-            nn.ReLU(),
             nn.ConvTranspose2d(48, 24, 4, stride=2, padding=1),
+            nn.BatchNorm2d(24),
             nn.ReLU(),
             nn.ConvTranspose2d(24, 12, 4, stride=2, padding=1),
             nn.ReLU(),

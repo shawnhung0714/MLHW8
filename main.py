@@ -33,7 +33,7 @@ def train(device):
         wandb.init(project="MLHW8", entity="shawnhung", config=config)
 
     dataset = CustomTensorDataset(Path(config.root_dir) / "trainingset.npy")
-    train_set, val_set = utils.train_val_dataset(dataset)
+    train_set, val_set = utils.train_val_dataset(dataset, 0.2)
 
     train_dataloader = DataLoader(
         train_set,
@@ -54,18 +54,20 @@ def train(device):
     # selecting a model type from {'cnn', 'fcn', 'vae', 'resnet'}
     model = model_classes[config.model_type].to(device)
 
-    optimizer = AdaBound(model.parameters(), **config.optim_hparas)
-    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), **config.optim_hparas)
+    criterion = nn.MSELoss().to(device)
     if config.model_type == 'vae':
         criterion = VaeLoss(criterion)
 
     if config.resume_model:
         utils.load_checkpoint(model, optimizer)
 
-    if config.use_wandb:
-        wandb.watch(model)
+    # if config.use_wandb:
+    #     wandb.watch(model)
 
     min_loss = 9999
+
+    stop_count = 0
 
     for epoch in range(config.n_epochs):
         model.train()
@@ -86,27 +88,26 @@ def train(device):
             optimizer.step()
 
         mean_loss = np.mean(total_loss)
-        if config.use_wandb:
-            wandb.log(
-                {"train/loss": mean_loss}
-            )
         logger.info(f"Training | Epoch {epoch + 1} | loss: {mean_loss:.4f}")
 
         val_loss = evaluate(model, val_dataloader, criterion, imgs)
         model.eval()
         if config.use_wandb:
             wandb.log(
-                {"Val/loss": val_loss}
+                {"train/loss": mean_loss, "Val/loss": val_loss}
             )
-        logger.info(f"Validation | Epoch {epoch + 1} | val_loss = {val_loss:.3f}")
+        logger.info(f"Validation | Epoch {epoch + 1} | val_loss = {val_loss:.4f}")
 
         # Save model to specified path
         if val_loss < min_loss:
             min_loss = val_loss
             logger.info(f"Saving model (epoch = {epoch+1}, min_loss = {min_loss:.4f}")
             utils.save_chekcpoint(model)
-
-        logger.info("finish validation")
+            stop_count = 0
+        else:
+            stop_count += 1
+            if stop_count > config.early_stop:
+                break
 
     logger.info("finish training")
 
@@ -129,6 +130,7 @@ def evaluate(model, dataloader, criterion, imgs):
 
 
 def test(device):
+    logger.info("Evaluating Test Set ...")
     eval_loss = nn.MSELoss(reduction='none')
     model = model_classes[config.model_type].to(device)
     utils.load_checkpoint(model)
@@ -142,7 +144,6 @@ def test(device):
         pin_memory=True,
     )
 
-    logger.info("Evaluating Test Set ...")
     result = []
     model.eval()
     with torch.no_grad():
